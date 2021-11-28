@@ -1,0 +1,86 @@
+---
+title: "esm206_week9"
+author: "Deanna Mireles"
+date: "11/28/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(here)
+library(broom)
+library(janitor)
+```
+
+## Read in data
+```{r}
+lizards <- read_csv(here("data", "lizards.csv"))
+```
+
+Get counts od lizards by species
+```{r}
+lizards %>% 
+  count(spp) %>% 
+  arrange(-n) # Shows the list from most to least
+```
+
+## Make a subset
+
+- UTST lizards
+- Sites: IBPE (enclosure grassland site), RABB (rabbit mesquite site), "EAST" (east tarbush site)
+- Tail condition recorded (W = whole, B = broken)
+
+```{r}
+utst <- lizards %>% 
+  filter(spp == "UTST") %>% 
+  filter(site %in% c("IBPE", "RABB", "EAST")) %>% 
+  filter(tail %in% c("B", "W"))
+```
+
+## Find counts and proportions of lizards with borken or whole tails at each site
+
+```{r}
+# First Way - long format doesn't look very nice
+utst %>% 
+  count(site, tail)
+```
+
+```{r}
+# Second Way- easier and gives results in contingency table format; better for chi-squared function
+tail_counts <- utst %>% 
+  tabyl(site, tail) 
+
+
+# Another version w/ proportion by row **
+tail_proportions <- tail_counts %>% 
+  adorn_percentages() %>% # Gives count by %
+  adorn_pct_formatting(digits = 2) %>% # Changed sig fig to 2
+  adorn_ns() # Actual counts included as well
+```
+
+## Convert to a contingency table
+
+Use `column_to_rowname()`.
+
+```{r}
+lizard_ct <- tail_counts %>% 
+  column_to_rownames(var = "site")
+```
+
+## Run Chi-square
+
+Are tail breakage and site independent? (if yes, site has no impact on tail breakages and we will see similar proportions across all three sites)
+
+```{r}
+lizard_x2 <- chisq.test(lizard_ct)
+lizard_x2
+
+lizard_tidy <- tidy(lizard_x2)
+```
+
+X-squared = 13.064, p-value = 0.001456 -> p < 0.05 so, yes we have sufficient evident to reject he null hypothesis of independence site and tail breakage are not independent. There is a significant association between site and tail breakage.
+
+Say it like this w/ inline reference: There is a significant association (i.e. non-independence) between site and lizard tail breakage ($\chi$^2^(`r lizard_tidy$parameter`) = `r round(lizard_tidy$statistic, 2)`, *p* = `r round(lizard_tidy$p.value, 2)`).
+
+
